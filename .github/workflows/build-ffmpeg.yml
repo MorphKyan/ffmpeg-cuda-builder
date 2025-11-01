@@ -39,6 +39,7 @@ jobs:
           libxcb-xfixes0-dev \
           meson \
           ninja-build \
+          nasm \
           pkg-config \
           texinfo \
           wget \
