@@ -114,7 +114,7 @@ jobs:
         tar -czf ffmpeg-cuda-linux-x64.tar.gz ffmpeg-cuda-build
         
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ffmpeg-cuda-build
         path: ffmpeg-cuda-linux-x64.tar.gz
