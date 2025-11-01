@@ -1,0 +1,129 @@
+name: Build FFmpeg with CUDA for Windows
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          git
+          make
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-nasm
+          mingw-w64-x86_64-yasm
+          mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-libtool
+          mingw-w64-x86_64-autotools
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-pkgconf
+          mingw-w64-x86_64-libass
+          mingw-w64-x86_64-freetype
+          mingw-w64-x86_64-lame
+          mingw-w64-x86_64-opus
+          mingw-w64-x86_64-theora
+          mingw-w64-x86_64-vorbis
+          mingw-w64-x86_64-x264
+          mingw-w64-x86_64-x265
+          mingw-w64-x86_64-openssl
+          mingw-w64-x86_64-zlib
+    
+    - name: Install NVIDIA CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.10
+      with:
+        cuda: '11.8'
+        method: 'network'
+        windows-silent-install-flags: '-s nvcc_11.8'
+    
+    - name: Set up environment variables
+      run: |
+        echo "CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8" >> $env:GITHUB_ENV
+        echo "CUDA_PATH/bin" >> $env:GITHUB_PATH
+      shell: pwsh
+    
+    - name: Clone FFmpeg source
+      run: |
+        git clone https://git.ffmpeg.org/ffmpeg.git
+        cd ffmpeg
+        git checkout release/6.0
+      shell: msys2 {0}
+    
+    - name: Install nv-codec-headers
+      run: |
+        git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
+        cd nv-codec-headers
+        make
+        make install PREFIX=/mingw64
+      shell: msys2 {0}
+    
+    - name: Configure FFmpeg with CUDA and nonfree
+      run: |
+        cd ffmpeg
+        ./configure \
+          --enable-nonfree \
+          --enable-gpl \
+          --enable-cuda-nvcc \
+          --enable-cuvid \
+          --enable-nvdec \
+          --enable-nvenc \
+          --enable-libnpp \
+          --extra-cflags="-I/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.8/include" \
+          --extra-ldflags="-L/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.8/lib/x64" \
+          --nvccflags="-gencode arch=compute_52,code=sm_52 -O2" \
+          --enable-libass \
+          --enable-libfreetype \
+          --enable-libmp3lame \
+          --enable-libopus \
+          --enable-libtheora \
+          --enable-libvorbis \
+          --enable-libx264 \
+          --enable-libx265 \
+          --enable-openssl \
+          --enable-shared \
+          --disable-static \
+          --prefix=/tmp/ffmpeg-build
+      shell: msys2 {0}
+    
+    - name: Build FFmpeg
+      run: |
+        cd ffmpeg
+        make -j$(nproc)
+        make install PREFIX=/tmp/ffmpeg-build
+      shell: msys2 {0}
+    
+    - name: Package build artifacts
+      run: |
+        mkdir ffmpeg-cuda-build
+        cp /tmp/ffmpeg-build/bin/* ffmpeg-cuda-build/
+        # Copy required DLLs
+        cp /mingw64/bin/libwinpthread-1.dll ffmpeg-cuda-build/
+        cp /mingw64/bin/libgcc_s_seh-1.dll ffmpeg-cuda-build/
+        cp /mingw64/bin/libstdc++-6.dll ffmpeg-cuda-build/
+        7z a ffmpeg-cuda-windows-x64.zip ffmpeg-cuda-build
+      shell: msys2 {0}
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ffmpeg-cuda-windows-build
+        path: ffmpeg-cuda-windows-x64.zip
+    
+    - name: Create Release (on push to main)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ffmpeg-cuda-windows-x64.zip
+        token: ${{ secrets.GITHUB_TOKEN }}
