@@ -40,6 +40,7 @@ jobs:
           mingw-w64-x86_64-x265
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-zlib
+          mingw-w64-x86_64-nv-codec-headers
     
     - name: Install NVIDIA CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.24
@@ -49,8 +50,11 @@ jobs:
     
     - name: Set up environment variables
       run: |
-        echo "CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8" >> $env:GITHUB_ENV
-        echo "CUDA_PATH/bin" >> $env:GITHUB_PATH
+        # Use short path without spaces for CUDA
+        $cudaShortPath = & cmd /c 'for %i in ("C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8") do @echo %~si'
+        echo "CUDA_PATH_SHORT=$cudaShortPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "$cudaShortPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       shell: pwsh
     
     - name: Clone FFmpeg source
@@ -60,16 +64,10 @@ jobs:
         git checkout release/6.0
       shell: msys2 {0}
     
-    - name: Install nv-codec-headers
-      run: |
-        git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
-        cd nv-codec-headers
-        make
-        make install PREFIX=/mingw64
-      shell: msys2 {0}
-    
     - name: Configure FFmpeg with CUDA and nonfree
       run: |
+        # Get the short path for CUDA to avoid spaces
+        export CUDA_PATH_SHORT=$(cmd.exe /c 'for %i in ("C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8") do @echo %~si' 2>/dev/null | tr -d '\r')
         cd ffmpeg
         ./configure \
           --enable-nonfree \
@@ -79,8 +77,8 @@ jobs:
           --enable-nvdec \
           --enable-nvenc \
           --enable-libnpp \
-          --extra-cflags="-I/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.8/include" \
-          --extra-ldflags="-L/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.8/lib/x64" \
+          --extra-cflags="-I$CUDA_PATH_SHORT/include" \
+          --extra-ldflags="-L$CUDA_PATH_SHORT/lib/x64" \
           --nvccflags="-gencode arch=compute_52,code=sm_52 -O2" \
           --enable-libass \
           --enable-libfreetype \
@@ -111,6 +109,9 @@ jobs:
         cp /mingw64/bin/libwinpthread-1.dll ffmpeg-cuda-build/
         cp /mingw64/bin/libgcc_s_seh-1.dll ffmpeg-cuda-build/
         cp /mingw64/bin/libstdc++-6.dll ffmpeg-cuda-build/
+        # Copy CUDA runtime DLLs
+        cp "$CUDA_PATH/bin/cudart64_110.dll" ffmpeg-cuda-build/ || true
+        cp "$CUDA_PATH/bin/nvcuvid64_110.dll" ffmpeg-cuda-build/ || true
         7z a ffmpeg-cuda-windows-x64.zip ffmpeg-cuda-build
       shell: msys2 {0}
     
