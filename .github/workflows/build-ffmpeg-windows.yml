@@ -40,7 +40,6 @@ jobs:
           mingw-w64-x86_64-x265
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-zlib
-          mingw-w64-x86_64-nv-codec-headers
     
     - name: Install NVIDIA CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.24
@@ -62,6 +61,14 @@ jobs:
         git clone https://git.ffmpeg.org/ffmpeg.git
         cd ffmpeg
         git checkout release/6.0
+      shell: msys2 {0}
+    
+    - name: Install nv-codec-headers
+      run: |
+        git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
+        cd nv-codec-headers
+        make
+        make install PREFIX=/mingw64
       shell: msys2 {0}
     
     - name: Configure FFmpeg with CUDA and nonfree
