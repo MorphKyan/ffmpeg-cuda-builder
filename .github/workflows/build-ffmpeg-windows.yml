@@ -42,11 +42,10 @@ jobs:
           mingw-w64-x86_64-zlib
     
     - name: Install NVIDIA CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.10
+      uses: Jimver/cuda-toolkit@v0.2.24
       with:
-        cuda: '11.8'
-        method: 'network'
-        windows-silent-install-flags: '-s nvcc_11.8'
+        cuda: '11.8.0'
+        method: 'local'
     
     - name: Set up environment variables
       run: |
