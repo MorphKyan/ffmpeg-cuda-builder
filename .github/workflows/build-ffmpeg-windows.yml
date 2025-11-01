@@ -34,8 +34,8 @@ jobs:
           mingw-w64-x86_64-freetype
           mingw-w64-x86_64-lame
           mingw-w64-x86_64-opus
-          mingw-w64-x86_64-theora
-          mingw-w64-x86_64-vorbis
+          mingw-w64-x86_64-libtheora
+          mingw-w64-x86_64-libvorbis
           mingw-w64-x86_64-x264
           mingw-w64-x86_64-x265
           mingw-w64-x86_64-openssl
